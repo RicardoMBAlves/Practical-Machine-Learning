@@ -1,0 +1,76 @@
+---
+title: "Practical Machine Learning"
+author: "Ricardo Alves"
+date: "27 de Setembro de 2015"
+output: html_document
+---
+
+Practical Machine Learning
+
+
+Download Library
+
+```{r}
+library(caret)
+library(randomForest)
+library(doParallel)
+library(e1071)
+set.seed(111)
+options(warn=-1)
+```
+
+Download Data Set
+
+```{r}
+training_data <- read.csv("pml-training.csv", na.strings=c("#DIV/0!") )
+evaluation <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!") )
+```
+
+
+Clean and Divide Data Set in Training Set and Testing Set
+
+```{r}
+for(i in c(8:ncol(training_data)-1)) {training_data[,i] = as.numeric(as.character(training_data[,i]))}
+
+for(i in c(8:ncol(evaluation_data)-1)) {evaluation[,i] = as.numeric(as.character(evaluation[,i]))}
+
+feature_set <- colnames(training_data[colSums(is.na(training_data)) == 0])[-(1:7)]
+model_data <- training_data[feature_set]
+
+inTrain <- createDataPartition(y=model_data$classe, p=0.75, list=FALSE )
+trainingData <- model_data[inTrain,]
+testingData <- model_data[-inTrain,]
+```
+
+
+Apply Random Forest in traning and testing data and OutPut confusion Matrix
+```{r}
+
+registerDoParallel()
+x <- trainingData[-ncol(trainingData)]
+y <- trainingData$classe
+
+randomf <- foreach(ntree=rep(150, 6), .combine=randomForest::combine, .packages='randomForest') %dopar% {
+        randomForest(x, y, ntree=ntree) 
+}
+
+predictions <- predict(randomf, newdata=trainingData)
+confusionMatrix(predictions,trainingData$classe)
+
+
+predictionsT <- predict(randomf, newdata=testingData)
+confusionMatrix(predictionsT,testingData$classe)
+```
+
+Evaluation the model 
+
+```{r}
+ev <- evaluation
+ev <- ev[feature_set[feature_set!='classe']]
+answers <- predict(randomf, newdata=ev)
+
+answers
+
+pml_write_files(answers)
+
+```
